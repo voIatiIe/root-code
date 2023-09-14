@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <vector>
+#include <TH1.h>
+#include <TTree.h>
+#include <TLorentzVector.h>
+#include <TFile.h>
 
 using namespace std;
 
@@ -21,7 +25,7 @@ void set_uo_flow(TH1D *hist) {
     hist -> SetBinContent(1, hist -> GetBinContent(0) + hist -> GetBinContent(1));
     hist -> SetBinContent(NBins, hist -> GetBinContent(NBins) + hist -> GetBinContent(NBins + 1));
 
-    hist -> SetBinError(1, sqrt(pow(hist -> GetBinError(0), 2) + pow(hist -> GetBinError(0), 2)));
+    hist -> SetBinError(1, sqrt(pow(hist -> GetBinError(0), 2) + pow(hist -> GetBinError(1), 2)));
     hist -> SetBinError(NBins, sqrt(pow(hist -> GetBinError(NBins), 2) + pow(hist -> GetBinError(NBins + 1), 2)));
 }
 
@@ -54,11 +58,17 @@ void converter() {
     double metTST_phi, ph_iso_et20, ph_iso_pt, ph_z_point;
     TLorentzVector met, ph, jet, jet2;
 
+    Double_t xbins[11] = {150, 180, 210, 240, 270, 300, 340, 380, 430, 510, 600};
+
     TFile *outFile = new TFile(TString(outFName.data()), "RECREATE");
 
     TH1D *hist_SR = new TH1D ("SR", "SR", NBins, left_border, right_border);
     TH1D *hist_Wg = new TH1D ("Wg", "Wg", NBins, left_border, right_border);
     TH1D *hist_GammaJet = new TH1D ("GammaJet", "GammaJet", NBins, left_border, right_border);
+
+    hist_SR = dynamic_cast<TH1D*>(hist_SR->Rebin(NBins, "", xbins));
+    hist_Wg = dynamic_cast<TH1D*>(hist_Wg->Rebin(NBins, "", xbins));
+    hist_GammaJet = dynamic_cast<TH1D*>(hist_GammaJet->Rebin(NBins, "", xbins));
 
     for (auto inFName : inFilenames) {
         TFile *inFile = new TFile(TString(inFName.data()), "READ");
@@ -123,8 +133,6 @@ void converter() {
         for (unsigned int i = 0; i < inTree->GetEntries(); i++) {
             inTree->GetEntry(i);
 
-            weight *= weight_coef;
-
             int n_lep = n_e_medium + n_mu;
             double IsoVar = ph_iso_et20/ph_pt;
 
@@ -134,6 +142,8 @@ void converter() {
             ph.SetPtEtaPhiE(ph_pt, ph_eta, ph_phi, ph_pt);
 
             // сюда нужно добавить отборы
+
+            weight *= weight_coef;
 
             if(metTSTsignif >= 11 && n_lep == 0) hist_SR->Fill(ph_pt, weight);
             else if(metTSTsignif >= 11 && n_lep != 0) hist_Wg->Fill(ph_pt, weight);
